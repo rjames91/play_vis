@@ -15,12 +15,12 @@ def center_surround_kernel(width=3, ctr_sigma=0.8, sigma_mult=6.7, on_center=Tru
   
   ctr = gaussian2D(width, ctr_sigma)
   srr = gaussian2D(width, sigma_mult*ctr_sigma)
-
   if on_center:
     cs_kernel = ctr - srr
   else:
     cs_kernel = srr - ctr
 
+  cs_kernel = sum2zero(cs_kernel)
   cs_kernel, w = conv2one(cs_kernel)
   
   return cs_kernel

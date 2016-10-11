@@ -125,11 +125,14 @@ def plot_imgs(imgs, figs_per_row, save=False, filename=None, min_v=0., max_v=2.)
 
 
 
-def plot_layer(lyr, scale_factor=0.5, exc_color=(0., 0., 1.)):
+
+
+def plot_layer(lyr, scale_factor=0.5, exc_color=(0., 0., 1.), 
+               inh_color=(1., 0., 0.)):
     from mayavi import mlab 
     if 'inh' in lyr.keys():
         mlab.points3d(lyr['inh'][:, 0], lyr['inh'][:, 2], lyr['inh'][:, 1], 
-                      scale_factor=scale_factor, color=(1., 0., 0.),
+                      scale_factor=scale_factor, color=inh_color,
                       mode='sphere')
 
     if 'exc' in lyr.keys():
