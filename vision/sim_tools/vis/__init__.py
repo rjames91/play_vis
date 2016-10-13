@@ -4,11 +4,12 @@ from ..common import *
 def plot_connector_3d(ax, imgw, imgh, conns, col_start=0, row_start=0,
                       col_step=1, row_step=1):
 
-    pop_e = np.array([[x, y, 0] for x in range(imgw) for y in range(imgh)])
-    pop_i = np.array([[x, y, 1] for x in range(imgw) for y in range(imgh)])
-    pop_d = np.array([[x, y, 10] for x in range(col_start, imgw, col_step) \
-                                 for y in range(row_start, imgh, row_step)])
+    pop_e = np.array([[x, -y, 0] for y in range(imgh) for x in range(imgw)])
+    pop_i = np.array([[x, -y, 1] for y in range(imgh) for x in range(imgw)])
+    pop_d = np.array([[x, -y, 10] for y in range(col_start, imgh, col_step) \
+                                  for x in range(row_start, imgw, row_step)])
 
+    # print(pop_e)
     ax.scatter(pop_e[:, 0], pop_e[:, 1], pop_e[:, 2], c='g')
     ax.scatter(pop_i[:, 0], pop_i[:, 1], pop_i[:, 2], c='r')
     ax.scatter(pop_d[:, 0], pop_d[:, 1], pop_d[:, 2], c='c')
@@ -29,6 +30,7 @@ def plot_connector_3d(ax, imgw, imgh, conns, col_start=0, row_start=0,
         zs = [pop_i[src, 2], pop_d[dst, 2]]
         ax.plot(xs, ys, zs, c=(1., 0., 0., w))
         
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
+    ax.set_xlabel('Cols (x)')
+    ax.set_ylabel('Rows (y)')
     ax.set_zlabel('Z Label')
+

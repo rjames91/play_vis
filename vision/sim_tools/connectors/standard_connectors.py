@@ -46,10 +46,11 @@ def wta_interneuron(num_neurons, ff_weight=2., fb_weight=-2., delay=1.,
 def list_all2all(pre, post, weight=2., delay=1.):
     np.random.seed(np.uint32(time.time()*1000000))
     nw = len(pre)*len(post)
-    weights = np.random.normal(size=nw)*weight
+    weights = np.random.normal(loc=weight, scale=0.5*weight, size=nw)
+    weights = np.abs(weights)
     conns = [(pre[i], post[j], weights[i*len(post) + j], delay) \
-                                       for i in range(len(pre)) \
-                                       for j in range(len(post)) ]
+                                       for j in range(len(post)) \
+                                       for i in range(len(pre)) ]
 
     return conns
 
@@ -60,7 +61,7 @@ def list_one2one(pre, post, weight=2., delay=1.):
     
     conns = [(pre[i], post[i], weight, delay) for i in range(num_conns)]
     
-    return connns
+    return conns
 
 
 def list_wta(pop, weight=-2., delay=1.):
@@ -74,10 +75,10 @@ def list_wta_interneuron(pop, inter, ff_weight=2., fb_weight=-2., delay=1.):
     if len(pop) != len(inter):
         raise Exception("In list_wta_interneuron: lengths of populations not equal")
     
-    conn_ff = list_one2one(pop, inter, np.abs(ff_weight), delay, start_idx)
+    conn_ff = list_one2one(pop, inter, np.abs(ff_weight), delay)
     npop  = len(pop)
-    conns_fb = [(inter[i], pop[j], weight, delay) for i in range(npop) \
-                                                  for j in range(npop) if i != j]
+    conn_fb = [(inter[i], pop[j], fb_weight, delay) for i in range(npop) \
+                                                    for j in range(npop) if i != j]
 
     
     return conn_ff, conn_fb
