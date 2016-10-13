@@ -80,13 +80,47 @@ def remove_inh_only_dst(exc_conns, inh_conns, exc_counts):
     return new_exc, new_inh
 
 
-def inh_neighbours(r, c, row_step, col_step, kw, kh):
-    hlf_kw = kw//2
-    hlf_kh = kh//2
-    for dr in range(r-hlf_kw
+def inh_neighbours(r, c, row_step, col_step, kw, kh, correlation,
+                   delay=1, selfdelay=4):
+    if row_step >= kh or col_step >= kw:
+        return []
+    else:
+        hlf_kw = kw//2
+        hlf_kh = kh//2
+        src = (r//row_step)*(imgw//col_step) + c//col_step
+        
+        nbr = []
+        kr = 0
+        for nr in range(r - hlf_kh, r + hlf_kh + 1, row_step):
+            if nr < 0 or nr >= imgh:
+                kr += 1
+                continue
+                
+            kc = 0
+            for nc in range(c - hlf_kw, c + hlf_kw + 1, col_step):
+                if nc < 0 or nc >= imgw:
+                    kc += 1
+                    continue
+                
+                if nr == r and nc == c:
+                    d = selfdelay
+                    dst = src
+                else:
+                    d = delay
+                    dst = (nr//row_step)*(imgw//col_step) + nc//col_step
 
-def lateral_inh_connector(layer_width, layer_height, kernel
-                          exc_weight, inh_weight, delay=1., 
+                w = correlation[kr, kc]
+                
+                nbr.append( (src, dst, d, w) )
+                
+                kc += 1
+            kr += 1
+        
+        return nbr
+
+
+def lateral_inh_connector(layer_width, layer_height, kernel, correlation,
+                          exc_weight, inh_weight, delay=1., self_delay=4,
                           col_step=1, row_step=1, 
                           col_start=0, row_start=0, min_w = 0.001):
     '''Assuming there's an interneuron layer with as many neurons as dest'''
@@ -112,18 +146,18 @@ def lateral_inh_connector(layer_width, layer_height, kernel
                     if sc < 0 or sc >= layer_width:
                         continue
 
-                    # divide values so that indices match the size of the
-                    # Post (destination) next layer
+                    #divide values so that indices match the size of the
+                    #Post (destination) next layer
+                    ### from Post to Interneurons
                     src = (dr//row_step)*layer_width//col_step + (dc//col_step)
-                    dsts = inh_neighbours(dr, dc, row_step, col_step, kw, kh)
+                    exc_conns.append( (src, src, exc_weight, delay) )
                     
-                    src = int(src); dst = int(dst); w = float(w);
-                    delay = float(delay)
+                    ### from Interneurons to Post
+                    inh_conns += inh_neighbours(dr, dc, row_step, col_step, kw, kh,
+                                                correlation, delay, selfdelay)
                     
-                    if w < 0:
-                        inh_conns.append((src, dst, w, delay))
-                        inh_counts[dst] += 1
-                    elif w > 0:
-                        exc_conns.append((src, dst, w, delay))
-                        exc_counts[dst] += 1
+    return exc_conns, inh_conns
+                        
+                    
 
+                    
