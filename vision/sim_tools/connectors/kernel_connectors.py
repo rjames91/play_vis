@@ -2,7 +2,9 @@ from ..common import *
 
 def full_kernel_connector(layer_width, layer_height, kernel, delay=1.,
                           col_step=1, row_step=1, 
-                          col_start=0, row_start=0, min_w = 0.001):
+                          col_start=0, row_start=0, 
+                          src_start_idx=0,
+                          min_w = 0.001):
     '''Create connection list based on a convolution kernel, the format
        for the lists is to be used with PyNN 0.7. 
        (Pre neuron index, Post neuron index, weight, delay)
@@ -47,7 +49,7 @@ def full_kernel_connector(layer_width, layer_height, kernel, delay=1.,
                     if np.abs(w) < min_w:
                         continue
                     
-                    src = sr*layer_width + sc
+                    src = sr*layer_width + sc + src_start_idx
                     # divide values so that indices match the size of the
                     # Post (destination) next layer
                     dst = (dr//row_step)*layer_width//col_step + (dc//col_step)

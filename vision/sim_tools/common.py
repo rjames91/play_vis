@@ -46,7 +46,16 @@ if sys.version_info.major == 2:
           step = int(step)
           return xrange(start, stop, step)
 
+EXC, OFF = 0, 1
+OFF, ON = 0, 1
+D2R = np.pi/180.
+R2D = 180./np.pi
 
+def deg2rad(d):
+    return D2R*d
+
+def rad2deg(r):
+    return R2D*r
 
 def normalize(mat):
   w = 1./np.sum(np.abs(mat))
