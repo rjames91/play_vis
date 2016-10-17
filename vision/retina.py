@@ -36,7 +36,11 @@ defaults = {'imgw': 160, 'imgh': 128, 'dvs': dvs_modes[0],
                                     'v_thresh': -55.4
                                }
                         }
-            }
+            'record': {'voltage': False, 
+                       'spikes': False,
+                       'weights': False
+                      }
+           }
 
 class Retina():
     
@@ -159,6 +163,12 @@ class Retina():
             self.pops[k]['cam_inter'] = sim.Population(self.width*self.height,
                                                        inh_cell, inh_param,
                                                        label='cam_inter_%s'%k)
+            if self.cfg['record']['voltages']:
+               self.pops[k]['cam_inter'].record_v()
+
+            if self.cfg['record']['spikes']:
+                self.pops[k]['cam_inter'].record()
+            
             for p in self.conns[k].keys():
                 self.pops[k][p] = {'bipolar': sim.Population(self.filter_size,
                                                              exc_cell, exc_parm,
@@ -172,8 +182,17 @@ class Retina():
                                                                exc_cell, exc_parm,
                                                                label='ganglion_%s_%s'%(k, p)),
                                   } 
+                if self.cfg['record']['voltages']:
+                   self.pops[k][p]['bipolar'].record_v()
+                   self.pops[k][p]['inter'].record_v()
+                   self.pops[k][p]['ganglion'].record_v()
 
-    
+                if self.cfg['record']['spikes']:
+                    self.pops[k][p]['bipolar'].record()
+                    self.pops[k][p]['inter'].record()
+                    self.pops[k][p]['ganglion'].record()
+
+                
     def projections(self):
         self.projs = {}
         cfg = self.cfg
