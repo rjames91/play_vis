@@ -416,10 +416,11 @@ def label_spikes_from_to(labels, num_classes,
 
 
 def img_spikes_from_to(path, num_neurons, 
-                       start, end, 
+                       start_file_idx, end_file_idx, 
                        on_time_ms, off_time_ms, 
                        start_time, ext='txt'):
-
+    start = start_file_idx
+    end   = end_file_idx
     spikes = []
 
     spk_files = glob.glob(os.path.join(path, "*.%s"%(ext)))

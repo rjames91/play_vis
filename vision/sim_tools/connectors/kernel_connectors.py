@@ -1,6 +1,6 @@
 from ..common import *
 
-def full_kernel_connector(layer_width, layer_height, kernel, delay=1.,
+def full_kernel_connector(pre_layer_width, pre_layer_height, kernel, delay=1.,
                           col_step=1, row_step=1, 
                           col_start=0, row_start=0, 
                           src_start_idx=0,
@@ -20,13 +20,14 @@ def full_kernel_connector(layer_width, layer_height, kernel, delay=1.,
        :return exc_conns: Excitatory connections list
        :return inh_conns: Inhibitory connections list
     '''
+    layer_width, layer_height = pre_layer_width, pre_layer_height
     exc_conns = []
     inh_conns = []
     kh, kw = kernel.shape
     half_kh, half_kw = kh//2, kw//2
     num_dst = ( (layer_height - row_start)//row_step )*\
               ( (layer_width  - col_start)//col_step )
-              
+    
     exc_counts = [0 for dr in range(num_dst)]
     inh_counts = [0 for dr in range(num_dst)]
 

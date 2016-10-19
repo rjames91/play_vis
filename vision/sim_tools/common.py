@@ -46,7 +46,7 @@ if sys.version_info.major == 2:
           step = int(step)
           return xrange(start, stop, step)
 
-EXC, OFF = 0, 1
+EXC, INH = 0, 1
 OFF, ON = 0, 1
 D2R = np.pi/180.
 R2D = 180./np.pi
