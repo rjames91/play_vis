@@ -44,7 +44,8 @@ def multi_gabor(kernel_width, angles, sigma, freq):
       if error <= 0.01:
         similar.append(j)
   
-  kernels = [tmp_k[i] for i in range(len(angles)) if i not in similar]
+  kernels = {rad2deg(angles[i]): tmp_k[i] \
+                        for i in range(len(angles)) if i not in similar}
 
   return kernels
   

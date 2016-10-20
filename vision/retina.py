@@ -8,7 +8,7 @@ dvs_modes = ['merged', 'split']
 defaults = {'kernel_width': 3,
             'row_step': 1, 'col_step': 1,
             'start_row': 0, 'start_col': 0,
-            'gabor': {'num_divs': 7., 'freq': 4., 'std_dev': 1.1},
+            'gabor': {'num_divs': 7., 'freq': 5., 'std_dev': 1.1},
             'ctr_srr': {'std_dev': 0.8, 'sd_mult': 6.7} ,
             'kernel_delay': 1.,
             'w2s': 1.6,
@@ -73,7 +73,7 @@ class Retina():
         
         self.cfg = cfg
         
-        self.ang_div = deg2rad(360./cfg['gabor']['num_divs'])
+        self.ang_div = deg2rad(180./cfg['gabor']['num_divs'])
         self.angles = [i*self.ang_div for i in range(cfg['gabor']['num_divs'])]
         
         self.kernels()
@@ -97,8 +97,8 @@ class Retina():
                                   angles, 
                                   cfg['gabor']['std_dev'], 
                                   cfg['gabor']['freq'])
-        self.gab = {a2k(angles[i]): gab[i]*cfg['w2s'] \
-                                    for i in range(len(gab))}
+        self.gab = {'gabor %d'%k: gab[k]*cfg['w2s'] for k in gab.keys()}
+        # self.gab = gab
         
         # self.cs_correlation =  convolve2d(self.cs, self.cs, mode='same')
         # self.cs_correlation = -self.cs_correlation*(self.cs_correlation > 0)
@@ -113,7 +113,7 @@ class Retina():
     def connectors(self):
         cfg = self.cfg
         self.conns = {'off': {}, 'on':{}}
-        
+
         self.conns['off']['cs'] = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
                                                                  self.cs,
@@ -136,7 +136,7 @@ class Retina():
 
         for k in self.gab.keys():
             
-            self.conns['on'][k] = conn_krn.full_kernel_connector(self.width,
+            self.conns['off'][k] = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
                                                                  self.gab[k],
                                                                  cfg['kernel_delay'],
@@ -146,7 +146,7 @@ class Retina():
                                                                  cfg['start_row'], 
                                                                  self.off_idx)
 
-            self.conns['off'][k] = conn_krn.full_kernel_connector(self.width,
+            self.conns['on'][k] = conn_krn.full_kernel_connector(self.width,
                                                                   self.height,
                                                                   self.gab[k],
                                                                   cfg['kernel_delay'],
