@@ -6,12 +6,13 @@ from scipy.signal import convolve2d, correlate2d
 MERGED, SPLIT = 0, 1
 dvs_modes = ['merged', 'split']
 defaults = {'kernel_width': 3,
+            'kernel_exc_delay': 2.,
+            'kernel_inh_delay': 1.,
             'row_step': 1, 'col_step': 1,
             'start_row': 0, 'start_col': 0,
             'gabor': {'num_divs': 7., 'freq': 5., 'std_dev': 1.1},
             'ctr_srr': {'std_dev': 0.8, 'sd_mult': 6.7} ,
-            'kernel_delay': 1.,
-            'w2s': 1.6,
+            'w2s': 1.7,
             'inh_cell': {'cell': "IF_curr_exp",
                          'params': {'cm': 0.3,  # nF
                                     'i_offset': 0.0,
@@ -38,7 +39,6 @@ defaults = {'kernel_width': 3,
                         },
             'record': {'voltages': False, 
                        'spikes': False,
-                       'weights': False
                       },
             'lat_inh': False,
            }
@@ -81,10 +81,12 @@ class Retina():
         self.populations()
         self.projections()
     
-    
+    def get_output_keys(self):
+        return [k for k in self.pops['on'] if k is not 'cam_inter']
+        
     def kernels(self):
         def a2k(a):
-            return 'gabor_%d'%( int( rad2deg(a) ) )
+            return 'gabor_%d'%( int( a ) )
             
         cfg = self.cfg
         angles = self.angles
@@ -97,7 +99,7 @@ class Retina():
                                   angles, 
                                   cfg['gabor']['std_dev'], 
                                   cfg['gabor']['freq'])
-        self.gab = {'gabor %d'%k: gab[k]*cfg['w2s'] for k in gab.keys()}
+        self.gab = {a2k(k): gab[k]*cfg['w2s'] for k in gab.keys()}
         # self.gab = gab
         
         # self.cs_correlation =  convolve2d(self.cs, self.cs, mode='same')
@@ -117,7 +119,8 @@ class Retina():
         self.conns['off']['cs'] = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
                                                                  self.cs,
-                                                                 cfg['kernel_delay'],
+                                                                 cfg['kernel_exc_delay'],
+                                                                 cfg['kernel_inh_delay'],
                                                                  cfg['col_step'], 
                                                                  cfg['row_step'],
                                                                  cfg['start_col'], 
@@ -127,7 +130,8 @@ class Retina():
         self.conns['on']['cs']  = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
                                                                  self.cs,
-                                                                 cfg['kernel_delay'],
+                                                                 cfg['kernel_exc_delay'],
+                                                                 cfg['kernel_inh_delay'],
                                                                  cfg['col_step'], 
                                                                  cfg['row_step'],
                                                                  cfg['start_col'], 
@@ -137,36 +141,38 @@ class Retina():
         for k in self.gab.keys():
             
             self.conns['off'][k] = conn_krn.full_kernel_connector(self.width,
-                                                                 self.height,
-                                                                 self.gab[k],
-                                                                 cfg['kernel_delay'],
-                                                                 cfg['col_step'], 
-                                                                 cfg['row_step'],
-                                                                 cfg['start_col'], 
-                                                                 cfg['start_row'], 
-                                                                 self.off_idx)
-
-            self.conns['on'][k] = conn_krn.full_kernel_connector(self.width,
                                                                   self.height,
                                                                   self.gab[k],
-                                                                  cfg['kernel_delay'],
+                                                                  cfg['kernel_exc_delay'],
+                                                                  cfg['kernel_inh_delay'],
                                                                   cfg['col_step'], 
                                                                   cfg['row_step'],
                                                                   cfg['start_col'], 
                                                                   cfg['start_row'], 
-                                                                  self.on_idx)
+                                                                  self.off_idx)
+
+            self.conns['on'][k] = conn_krn.full_kernel_connector(self.width,
+                                                                 self.height,
+                                                                 self.gab[k],
+                                                                 cfg['kernel_exc_delay'],
+                                                                 cfg['kernel_inh_delay'],
+                                                                 cfg['col_step'], 
+                                                                 cfg['row_step'],
+                                                                 cfg['start_col'], 
+                                                                 cfg['start_row'], 
+                                                                 self.on_idx)
 
         if self.dvs_mode == dvs_modes[0]:
             conns = conn_std.one2one(self.width*self.height*2,
                                      weight=cfg['w2s'], 
-                                     delay=cfg['kernel_delay'])
+                                     delay=cfg['kernel_inh_delay'])
         else:
             conns = conn_std.one2one(self.width*self.height,
                                      weight=cfg['w2s'], 
-                                     delay=cfg['kernel_delay'])
+                                     delay=cfg['kernel_inh_delay'])
         
         self.extra_conns = {'o2o': conns}
-            
+    
     def populations(self):
         self.pops = {}
         sim = self.sim
@@ -271,7 +277,7 @@ class Retina():
                 exc = sim.Projection(self.pops[k][p]['bipolar'], 
                                      self.pops[k][p]['inter'],
                                      sim.OneToOneConnector(weights=cfg['w2s'], 
-                                                           delays=cfg['kernel_delay']),
+                                                           delays=cfg['kernel_inh_delay']),
                                      target='excitatory')
                 
                 self.projs[k][p]['bip2intr'] = [exc]

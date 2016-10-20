@@ -1,10 +1,11 @@
 from ..common import *
 
-def full_kernel_connector(pre_layer_width, pre_layer_height, kernel, delay=1.,
+def full_kernel_connector(pre_layer_width, pre_layer_height, kernel, 
+                          exc_delay=2., inh_delay=1.,
                           col_step=1, row_step=1, 
                           col_start=0, row_start=0, 
                           src_start_idx=0,
-                          min_w = 0.001):
+                          min_w = 0.001, remove_inh_only=True):
     '''Create connection list based on a convolution kernel, the format
        for the lists is to be used with PyNN 0.7. 
        (Pre neuron index, Post neuron index, weight, delay)
@@ -56,16 +57,17 @@ def full_kernel_connector(pre_layer_width, pre_layer_height, kernel, delay=1.,
                     dst = (dr//row_step)*layer_width//col_step + (dc//col_step)
                     
                     src = int(src); dst = int(dst); w = float(w);
-                    delay = float(delay)
-                    
+
                     if w < 0:
-                        inh_conns.append((src, dst, w, delay))
+                        inh_conns.append((src, dst, w, inh_delay))
                         inh_counts[dst] += 1
                     elif w > 0:
-                        exc_conns.append((src, dst, w, delay))
+                        exc_conns.append((src, dst, w, exc_delay))
                         exc_counts[dst] += 1
     
-    exc_conns[:], inh_conns[:] = remove_inh_only_dst(exc_conns, inh_conns, exc_counts)
+    if remove_inh_only:
+        exc_conns[:], inh_conns[:] = remove_inh_only_dst(exc_conns, inh_conns, 
+                                                         exc_counts)
     
     return exc_conns, inh_conns
 
