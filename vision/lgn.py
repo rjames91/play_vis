@@ -58,13 +58,13 @@ class LGN():
         self.popsize = width*height
 
         
-        self.kernels()
-        self.connections()
-        self.populations()
-        self.projections()
+        self.build_kernels()
+        self.build_connections()
+        self.build_populations()
+        self.build_projections()
 
 
-    def kernels(self):
+    def build_kernels(self):
         cfg = self.cfg
         self.cs = krn_cs.center_surround_kernel(cfg['kernel_width'],
                                                 cfg['ctr_srr']['std_dev'], 
@@ -78,7 +78,7 @@ class LGN():
             self.split_cs[i] *= cfg['w2s']
 
 
-    def connections(self):
+    def build_connections(self):
         cfg = self.cfg
         conns = {}
         conns['cs'] = conn_krn.full_kernel_connector(self.width,
@@ -116,7 +116,7 @@ class LGN():
         conns['split'] = [exc, inh]
         self.conns = conns
         
-    def populations(self):
+    def build_populations(self):
         sim = self.sim
         cfg = self.cfg
         exc_cell = getattr(sim, cfg['exc_cell']['cell'], None)
@@ -147,7 +147,7 @@ class LGN():
         self.pops = pops
 
 
-    def projections(self):
+    def build_projections(self):
         sim = self.sim
         cfg = self.cfg
         projs = {}
@@ -170,6 +170,6 @@ class LGN():
                                              target='excitatory')
                                              
                                              
-            
+        self.projs = projs
 
         

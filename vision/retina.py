@@ -76,15 +76,15 @@ class Retina():
         self.ang_div = deg2rad(180./cfg['gabor']['num_divs'])
         self.angles = [i*self.ang_div for i in range(cfg['gabor']['num_divs'])]
         
-        self.kernels()
-        self.connectors()
-        self.populations()
-        self.projections()
+        self.build_kernels()
+        self.build_connectors()
+        self.build_populations()
+        self.build_projections()
     
     def get_output_keys(self):
         return [k for k in self.pops['on'] if k is not 'cam_inter']
         
-    def kernels(self):
+    def build_kernels(self):
         def a2k(a):
             return 'gabor_%d'%( int( a ) )
             
@@ -112,7 +112,7 @@ class Retina():
             # self.gab_correlation.append(corr)
             
 
-    def connectors(self):
+    def build_connectors(self):
         cfg = self.cfg
         self.conns = {'off': {}, 'on':{}}
 
@@ -173,7 +173,7 @@ class Retina():
         
         self.extra_conns = {'o2o': conns}
     
-    def populations(self):
+    def build_populations(self):
         self.pops = {}
         sim = self.sim
         cfg = self.cfg
@@ -232,7 +232,7 @@ class Retina():
                     self.pops[k][p]['ganglion'].record()
 
                 
-    def projections(self):
+    def build_projections(self):
         self.projs = {}
         cfg = self.cfg
         sim = self.sim
