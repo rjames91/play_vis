@@ -46,6 +46,9 @@ defaults = {'kernel_width': 3,
 
 class LGN():
     def __init__(self, simulator, retina, width, height, cfg=defaults):
+        
+        print("Building LGN...")
+        
         for k in defaults.keys():
             if k not in cfg.keys():
                 cfg[k] = defaults[k]
@@ -58,10 +61,21 @@ class LGN():
         self.popsize = width*height
 
         
+        print("\tBuilding kernels...")
         self.build_kernels()
-        self.build_connections()
+        print("\t\tdone!")
+        
+        print("\tBuilding connectors...")
+        self.build_connectors()
+        print("\t\tdone!")
+        
+        print("\tBuilding populations...")
         self.build_populations()
+        print("\t\tdone!")
+        
+        print("\tBuilding projections...")
         self.build_projections()
+        print("\t\tdone!")
 
 
     def build_kernels(self):
@@ -78,7 +92,7 @@ class LGN():
             self.split_cs[i] *= cfg['w2s']
 
 
-    def build_connections(self):
+    def build_connectors(self):
         cfg = self.cfg
         conns = {}
         conns['cs'] = conn_krn.full_kernel_connector(self.width,
@@ -92,14 +106,14 @@ class LGN():
                                                      cfg['start_row'])
                                                      
         exc, inh = conn_krn.full_kernel_connector(self.width,
-                                                        self.height,
-                                                        self.split_cs[EXC],
-                                                        cfg['kernel_exc_delay'],
-                                                        cfg['kernel_inh_delay'],
-                                                        cfg['col_step'], 
-                                                        cfg['row_step'],
-                                                        cfg['start_col'], 
-                                                        cfg['start_row'])
+                                                  self.height,
+                                                  self.split_cs[EXC],
+                                                  cfg['kernel_exc_delay'],
+                                                  cfg['kernel_inh_delay'],
+                                                  cfg['col_step'], 
+                                                  cfg['row_step'],
+                                                  cfg['start_col'], 
+                                                  cfg['start_row'])
         
         tmp, inh[:] = conn_krn.full_kernel_connector(self.width,
                                                      self.height,

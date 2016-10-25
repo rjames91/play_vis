@@ -1,10 +1,12 @@
 from ..common import *
-
+def default_mapping(r, c, ud, w, h):
+    return r*w + c
+    
 def full_kernel_connector(pre_layer_width, pre_layer_height, kernel, 
                           exc_delay=2., inh_delay=1.,
                           col_step=1, row_step=1, 
                           col_start=0, row_start=0, 
-                          src_start_idx=0,
+                          map_to_src=default_mapping,
                           min_w = 0.001, remove_inh_only=True):
     '''Create connection list based on a convolution kernel, the format
        for the lists is to be used with PyNN 0.7. 
@@ -51,17 +53,20 @@ def full_kernel_connector(pre_layer_width, pre_layer_height, kernel,
                     if np.abs(w) < min_w:
                         continue
                     
-                    src = sr*layer_width + sc + src_start_idx
+                    # src = sr*layer_width + sc + src_start_idx
                     # divide values so that indices match the size of the
                     # Post (destination) next layer
                     dst = (dr//row_step)*layer_width//col_step + (dc//col_step)
                     
-                    src = int(src); dst = int(dst); w = float(w);
+                    dst = int(dst); w = float(w);
 
                     if w < 0:
+                        src = map_to_src(sr, sc, 0, layer_width, layer_height)
+                        
                         inh_conns.append((src, dst, w, inh_delay))
                         inh_counts[dst] += 1
                     elif w > 0:
+                        src = map_to_src(sr, sc, 1, layer_width, layer_height)
                         exc_conns.append((src, dst, w, exc_delay))
                         exc_counts[dst] += 1
     

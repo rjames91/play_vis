@@ -371,7 +371,7 @@ def plot_spikes(spike_array, max_y=None, pad = 2, title="", marker='.',
                  marker=marker, markerfacecolor=color, markersize=markersize,
                  color=color)
     # pylab.xlim(min_time - pad, max_time + pad)
-    print("max_y ", max_y)
+    # print("max_y ", max_y)
     if max_y is None:
         
         max_y = n_idx 
@@ -382,9 +382,9 @@ def plot_spikes(spike_array, max_y=None, pad = 2, title="", marker='.',
         plotter.ylim(-pad, max_y + pad)
 
 
-    pylab.xlabel("Time (ms)")
-    pylab.ylabel("Neuron id")
-    pylab.title(title)
+    # pylab.xlabel("Time (ms)")
+    # pylab.ylabel("Neuron id")
+    # pylab.title(title)
 
 
 
@@ -436,17 +436,25 @@ def img_from_spikes(spikes, img_width, height):
     
     return img.reshape((img_height, img_width))
 
+def default_img_map(i, w, h):
+    row = i//w
+    col = i%w
+    
+    return row, col, 1
 
 def imgs_in_T_from_spike_array(spike_array, img_width, img_height, 
                                from_t, to_t, t_step, out_array=False,
-                               thresh=12):
+                               thresh=12, up_down = None,
+                               map_func = default_img_map):
     num_neurons = img_width*img_height
     if out_array: # should be output spike format
         spike_array = out_to_spike_array(spike_array, num_neurons)
 
+
+    
     spikes = [ sorted(spk_ts) for spk_ts in spike_array ]
         
-    imgs = [ np.zeros((img_height*img_width)) \
+    imgs = [ np.zeros((img_height, img_width, 3)) \
              for t in range(from_t, to_t, t_step) ]
     
     nrn_start_idx = [ 0 for t in range(len(spikes)) ]
@@ -460,18 +468,23 @@ def imgs_in_T_from_spike_array(spike_array, img_width, img_height,
             
             if len(spikes[nrn_id]) == 0:
                 continue
-            
+                
+            nrn_id = np.uint16(nrn_id)
+            row, col, up_dn = map_func(nrn_id, img_width, img_height)
+            if up_down is not None:
+                up_dn = up_down
+                
             for spk_t in spikes[nrn_id][nrn_start_idx[nrn_id]:]:
                 if t <= spk_t < t+t_step:
-                    imgs[t_idx][nrn_id] += thresh
+                    imgs[t_idx][row, col, up_dn] += thresh
                 else:
                     break
                 nrn_start_idx[nrn_id] += 1
 
         t_idx += 1
 
-    for t_idx in range(len(imgs)):
-        imgs[t_idx] = imgs[t_idx].reshape((img_height, img_width))
+    # for t_idx in range(len(imgs)):
+        # imgs[t_idx] = imgs[t_idx].reshape((img_height, img_width))
     
     return imgs
 

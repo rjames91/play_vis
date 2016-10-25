@@ -43,11 +43,24 @@ defaults = {'kernel_width': 3,
             'lat_inh': False,
            }
 
+def row_col_to_input(row, col, is_on_input, width, height):
+    row_bits = np.uint8(np.ceil(np.log2(height)))
+    idx = np.uint16(0)
+    
+    if is_on_input:
+        idx = idx | 1
+    
+    idx = idx | (row << 1)
+    idx = idx | (col << (row_bits + 1))
+    
+    return idx
 
 class Retina():
     
     def __init__(self, simulator, camera_pop, width, height, dvs_mode, 
                  cfg=defaults):
+        
+        print("Building Retina (%d x %d)"%(width, height))
         
         for k in defaults.keys():
             if k not in cfg.keys():
@@ -76,14 +89,26 @@ class Retina():
         self.ang_div = deg2rad(180./cfg['gabor']['num_divs'])
         self.angles = [i*self.ang_div for i in range(cfg['gabor']['num_divs'])]
         
+        print("\tBuilding kernels...")
         self.build_kernels()
+        print("\t\tdone!")
+        
+        print("\tBuilding connectors...")
         self.build_connectors()
+        print("\t\tdone!")
+        
+        print("\tBuilding populations...")
         self.build_populations()
+        print("\t\tdone!")
+        
+        print("\tBuilding projections...")
         self.build_projections()
+        print("\t\tdone!")
     
     def get_output_keys(self):
         return [k for k in self.pops['on'] if k is not 'cam_inter']
-        
+    
+    
     def build_kernels(self):
         def a2k(a):
             return 'gabor_%d'%( int( a ) )
@@ -115,7 +140,7 @@ class Retina():
     def build_connectors(self):
         cfg = self.cfg
         self.conns = {'off': {}, 'on':{}}
-
+        
         self.conns['off']['cs'] = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
                                                                  self.cs,
@@ -125,7 +150,7 @@ class Retina():
                                                                  cfg['row_step'],
                                                                  cfg['start_col'], 
                                                                  cfg['start_row'], 
-                                                                 self.off_idx)
+                                                                 row_col_to_input)
         
         self.conns['on']['cs']  = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
@@ -136,7 +161,7 @@ class Retina():
                                                                  cfg['row_step'],
                                                                  cfg['start_col'], 
                                                                  cfg['start_row'], 
-                                                                 self.on_idx)
+                                                                 row_col_to_input)
 
         for k in self.gab.keys():
             
@@ -149,7 +174,7 @@ class Retina():
                                                                   cfg['row_step'],
                                                                   cfg['start_col'], 
                                                                   cfg['start_row'], 
-                                                                  self.off_idx)
+                                                                  row_col_to_input)
 
             self.conns['on'][k] = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
@@ -160,7 +185,9 @@ class Retina():
                                                                  cfg['row_step'],
                                                                  cfg['start_col'], 
                                                                  cfg['start_row'], 
-                                                                 self.on_idx)
+                                                                 row_col_to_input)
+
+        self.extra_conns = {}
 
         if self.dvs_mode == dvs_modes[0]:
             conns = conn_std.one2one(self.width*self.height*2,
@@ -171,7 +198,25 @@ class Retina():
                                      weight=cfg['w2s'], 
                                      delay=cfg['kernel_inh_delay'])
         
-        self.extra_conns = {'o2o': conns}
+        self.extra_conns['o2o'] = conns
+        
+        
+        bi_width  = (self.width  - cfg['start_col'])//cfg['col_step']
+        bi_height = (self.height - cfg['start_row'])//cfg['row_step']
+        num_bi = bi_width*bi_height
+        
+        conns = conn_std.one2one(bi_width*bi_height,
+                                 weight=cfg['w2s'], 
+                                 delay=cfg['kernel_inh_delay'])
+        self.extra_conns['inter'] = conns
+        
+        conns = conn_krn.full_kernel_connector(bi_width, bi_height,
+                                               self.cs,
+                                               cfg['kernel_exc_delay'],
+                                               cfg['kernel_inh_delay'])
+        self.extra_conns['cs'] = conns
+        
+        
     
     def build_populations(self):
         self.pops = {}
@@ -276,19 +321,18 @@ class Retina():
                 
                 exc = sim.Projection(self.pops[k][p]['bipolar'], 
                                      self.pops[k][p]['inter'],
-                                     sim.OneToOneConnector(weights=cfg['w2s'], 
-                                                           delays=cfg['kernel_inh_delay']),
+                                     sim.FromListConnector(self.extra_conns['inter']),
                                      target='excitatory')
                 
                 self.projs[k][p]['bip2intr'] = [exc]
 
                 exc = sim.Projection(self.pops[k][p]['bipolar'], 
                                      self.pops[k][p]['ganglion'],
-                                     sim.FromListConnector(self.conns['on']['cs'][EXC]),
+                                     sim.FromListConnector(self.extra_conns['cs'][EXC]),
                                      target='excitatory')
                 inh = sim.Projection(self.pops[k][p]['inter'], 
                                      self.pops[k][p]['ganglion'],
-                                     sim.FromListConnector(self.conns['on']['cs'][INH]),
+                                     sim.FromListConnector(self.extra_conns['cs'][INH]),
                                      target='inhibitory')
                 
                 self.projs[k][p]['bip2gang'] = [exc, inh]
