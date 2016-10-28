@@ -8,18 +8,20 @@ dvs_modes = ['merged', 'split']
 defaults = {'kernel_width': 3,
             'kernel_exc_delay': 2.,
             'kernel_inh_delay': 1.,
+            'corr_self_delay': 4.,
             'row_step': 1, 'col_step': 1,
             'start_row': 0, 'start_col': 0,
-            'gabor': {'num_divs': 7., 'freq': 5., 'std_dev': 1.1},
+            'gabor': {'num_divs': 4., 'freq': 1., 'std_dev': 1.},
             'ctr_srr': {'std_dev': 0.8, 'sd_mult': 6.7} ,
             'w2s': 1.7,
+            'inhw': 2.,
             'inh_cell': {'cell': "IF_curr_exp",
                          'params': {'cm': 0.3,  # nF
                                     'i_offset': 0.0,
                                     'tau_m': 10.0,
                                     'tau_refrac': 2.0,
                                     'tau_syn_E': 2.,
-                                    'tau_syn_I': 8.,
+                                    'tau_syn_I': 6.,
                                     'v_reset': -70.0,
                                     'v_rest': -65.0,
                                     'v_thresh': -55.4
@@ -40,11 +42,11 @@ defaults = {'kernel_width': 3,
             'record': {'voltages': False, 
                        'spikes': False,
                       },
-            'lat_inh': False,
            }
 
 def row_col_to_input(row, col, is_on_input, width, height):
     row_bits = np.uint8(np.ceil(np.log2(height)))
+
     idx = np.uint16(0)
     
     if is_on_input:
@@ -99,10 +101,14 @@ class Retina():
         
         print("\tBuilding populations...")
         self.build_populations()
+        # import pprint
+        # pprint.pprint(self.pops)
         print("\t\tdone!")
         
         print("\tBuilding projections...")
         self.build_projections()
+        # import pprint
+        # pprint.pprint(self.projs)
         print("\t\tdone!")
     
     def get_output_keys(self):
@@ -119,100 +125,132 @@ class Retina():
                                                 cfg['ctr_srr']['std_dev'], 
                                                 cfg['ctr_srr']['sd_mult'])
         self.cs *= cfg['w2s']
-         
+        
         gab = krn_gbr.multi_gabor(cfg['kernel_width'], 
                                   angles, 
                                   cfg['gabor']['std_dev'], 
                                   cfg['gabor']['freq'])
         self.gab = {a2k(k): gab[k]*cfg['w2s'] for k in gab.keys()}
-        # self.gab = gab
         
-        # self.cs_correlation =  convolve2d(self.cs, self.cs, mode='same')
-        # self.cs_correlation = -self.cs_correlation*(self.cs_correlation > 0)
-
-        # self.gab_correlation = []
+        # ### for lateral inhibition
+        # corr =  convolve2d(self.cs, self.cs, mode='same')
+        # self.cs_corr = -corr*(corr > 0)
+# 
+        # self.gab_corr = {}
         # for g in self.gab:
-            # corr = convolve2d(g, g, mode='same')
+            # corr = convolve2d(self.gab[g], self.gab[g], mode='same')
             # corr = -corr*(corr > 0)
-            # self.gab_correlation.append(corr)
-            
+            # self.gab_corr[g] = corr
+            # 
 
     def build_connectors(self):
         cfg = self.cfg
         self.conns = {'off': {}, 'on':{}}
+        self.lat_conns = {'off': {}, 'on':{}}
         
         self.conns['off']['cs'] = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
                                                                  self.cs,
-                                                                 cfg['kernel_exc_delay'],
-                                                                 cfg['kernel_inh_delay'],
-                                                                 cfg['col_step'], 
-                                                                 cfg['row_step'],
-                                                                 cfg['start_col'], 
-                                                                 cfg['start_row'], 
-                                                                 row_col_to_input)
-        
+                                                                 exc_delay=cfg['kernel_exc_delay'],
+                                                                 inh_delay=cfg['kernel_inh_delay'],
+                                                                 map_to_src=row_col_to_input,
+                                                                 on_path=False)
+
         self.conns['on']['cs']  = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
                                                                  self.cs,
-                                                                 cfg['kernel_exc_delay'],
-                                                                 cfg['kernel_inh_delay'],
-                                                                 cfg['col_step'], 
-                                                                 cfg['row_step'],
-                                                                 cfg['start_col'], 
-                                                                 cfg['start_row'], 
-                                                                 row_col_to_input)
+                                                                 exc_delay=cfg['kernel_exc_delay'],
+                                                                 inh_delay=cfg['kernel_inh_delay'],
+                                                                 map_to_src=row_col_to_input,
+                                                                 on_path=True)
+
+
+        # self.lat_conns['off']['cs'] = conn_krn.lateral_inh_connector(self.width, 
+                                                                     # self.height, 
+                                                                     # self.cs_corr,
+                                                                     # cfg['w2s'],
+                                                                     # cfg['kernel_inh_delay'],
+                                                                     # cfg['corr_self_delay'])
+# 
+        # self.lat_conns['on']['cs'] = conn_krn.lateral_inh_connector(self.width, 
+                                                                    # self.height, 
+                                                                    # self.cs_corr,
+                                                                    # cfg['w2s'],
+                                                                    # cfg['kernel_inh_delay'],
+                                                                    # cfg['corr_self_delay'])
 
         for k in self.gab.keys():
+            krn = self.gab[k]
             
             self.conns['off'][k] = conn_krn.full_kernel_connector(self.width,
                                                                   self.height,
-                                                                  self.gab[k],
-                                                                  cfg['kernel_exc_delay'],
-                                                                  cfg['kernel_inh_delay'],
-                                                                  cfg['col_step'], 
-                                                                  cfg['row_step'],
-                                                                  cfg['start_col'], 
-                                                                  cfg['start_row'], 
-                                                                  row_col_to_input)
+                                                                  krn,
+                                                                  exc_delay=cfg['kernel_exc_delay'],
+                                                                  inh_delay=cfg['kernel_inh_delay'],
+                                                                  col_step=cfg['col_step'], 
+                                                                  row_step=cfg['row_step'],
+                                                                  col_start=cfg['start_col'], 
+                                                                  row_start=cfg['start_row'], 
+                                                                  map_to_src=row_col_to_input,
+                                                                  on_path=False)
 
             self.conns['on'][k] = conn_krn.full_kernel_connector(self.width,
                                                                  self.height,
-                                                                 self.gab[k],
-                                                                 cfg['kernel_exc_delay'],
-                                                                 cfg['kernel_inh_delay'],
-                                                                 cfg['col_step'], 
-                                                                 cfg['row_step'],
-                                                                 cfg['start_col'], 
-                                                                 cfg['start_row'], 
-                                                                 row_col_to_input)
+                                                                 krn,
+                                                                 exc_delay=cfg['kernel_exc_delay'],
+                                                                 inh_delay=cfg['kernel_inh_delay'],
+                                                                 col_step=cfg['col_step'], 
+                                                                 row_step=cfg['row_step'],
+                                                                 col_start=cfg['start_col'], 
+                                                                 row_start=cfg['start_row'], 
+                                                                 map_to_src=row_col_to_input,
+                                                                 on_path=True)
+
+            # corr = self.gab_corr[k]
+# 
+            # self.lat_conns['off'][k] = conn_krn.lateral_inh_connector(self.width, 
+                                                                      # self.height, 
+                                                                      # corr,
+                                                                      # cfg['w2s'],
+                                                                      # cfg['kernel_inh_delay'],
+                                                                      # cfg['corr_self_delay'])
+# 
+            # self.lat_conns['on'][k] = conn_krn.lateral_inh_connector(self.width, 
+                                                                     # self.height, 
+                                                                     # corr,
+                                                                     # cfg['w2s'],
+                                                                     # cfg['kernel_inh_delay'],
+                                                                     # cfg['corr_self_delay'])
+
 
         self.extra_conns = {}
 
+        #cam to inh-version of cam
         if self.dvs_mode == dvs_modes[0]:
             conns = conn_std.one2one(self.width*self.height*2,
-                                     weight=cfg['w2s'], 
+                                     weight=cfg['inhw'], 
                                      delay=cfg['kernel_inh_delay'])
         else:
             conns = conn_std.one2one(self.width*self.height,
-                                     weight=cfg['w2s'], 
+                                     weight=cfg['inhw'], 
                                      delay=cfg['kernel_inh_delay'])
         
         self.extra_conns['o2o'] = conns
         
-        
+        #bipolar to interneuron 
         bi_width  = (self.width  - cfg['start_col'])//cfg['col_step']
         bi_height = (self.height - cfg['start_row'])//cfg['row_step']
         num_bi = bi_width*bi_height
         
-        conns = conn_std.one2one(bi_width*bi_height,
-                                 weight=cfg['w2s'], 
+        conns = conn_std.one2one(num_bi,
+                                 weight=cfg['inhw'], 
                                  delay=cfg['kernel_inh_delay'])
         self.extra_conns['inter'] = conns
         
+        #bipolar/interneuron to ganglion
         conns = conn_krn.full_kernel_connector(bi_width, bi_height,
                                                self.cs,
-                                               cfg['kernel_exc_delay'],
+                                               cfg['kernel_exc_delay']+1,
                                                cfg['kernel_inh_delay'])
         self.extra_conns['cs'] = conns
         
@@ -276,13 +314,14 @@ class Retina():
                     self.pops[k][p]['inter'].record()
                     self.pops[k][p]['ganglion'].record()
 
-                
+
     def build_projections(self):
         self.projs = {}
         cfg = self.cfg
         sim = self.sim
         
-        if self.dvs_mode == dvs_modes[0]:
+        #on/off photoreceptors interneuron projections (for inhibition)
+        if self.dvs_mode == dvs_modes[0]: 
             conn = self.extra_conns['o2o']
             exc = sim.Projection(self.cam['on'], 
                                  self.pops['on']['cam_inter'],
@@ -305,6 +344,7 @@ class Retina():
                                      target='excitatory')            
                 self.projs[k]['cam_inter']['cam2intr'] = [exc]
 
+        #bipolar, interneurons and ganglions
         for k in self.conns.keys():
             for p in self.conns[k].keys():
                 self.projs[k][p] = {}
@@ -312,6 +352,7 @@ class Retina():
                                      self.pops[k][p]['bipolar'],
                                      sim.FromListConnector(self.conns[k][p][EXC]),
                                      target='excitatory')
+                                     
                 inh = sim.Projection(self.pops[k]['cam_inter'], 
                                      self.pops[k][p]['bipolar'],
                                      sim.FromListConnector(self.conns[k][p][INH]),

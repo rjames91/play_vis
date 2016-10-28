@@ -7,6 +7,7 @@ def full_kernel_connector(pre_layer_width, pre_layer_height, kernel,
                           col_step=1, row_step=1, 
                           col_start=0, row_start=0, 
                           map_to_src=default_mapping,
+                          on_path=True,
                           min_w = 0.001, remove_inh_only=True):
     '''Create connection list based on a convolution kernel, the format
        for the lists is to be used with PyNN 0.7. 
@@ -28,8 +29,8 @@ def full_kernel_connector(pre_layer_width, pre_layer_height, kernel,
     inh_conns = []
     kh, kw = kernel.shape
     half_kh, half_kw = kh//2, kw//2
-    num_dst = ( (layer_height - row_start)//row_step )*\
-              ( (layer_width  - col_start)//col_step )
+    num_dst = ( (layer_height)//row_step )*\
+              ( (layer_width )//col_step )
     
     exc_counts = [0 for dr in range(num_dst)]
     inh_counts = [0 for dr in range(num_dst)]
@@ -53,20 +54,23 @@ def full_kernel_connector(pre_layer_width, pre_layer_height, kernel,
                     if np.abs(w) < min_w:
                         continue
                     
+                    if on_path:
+                        src = map_to_src(sr, sc, 1, layer_width, layer_height)
+                    else:
+                        src = map_to_src(sr, sc, 0, layer_width, layer_height)
                     # src = sr*layer_width + sc + src_start_idx
                     # divide values so that indices match the size of the
                     # Post (destination) next layer
                     dst = (dr//row_step)*layer_width//col_step + (dc//col_step)
                     
-                    dst = int(dst); w = float(w);
+                    src = np.uint32(src) 
+                    dst = np.uint32(dst)
+                    w = float(w);
 
                     if w < 0:
-                        src = map_to_src(sr, sc, 0, layer_width, layer_height)
-                        
                         inh_conns.append((src, dst, w, inh_delay))
                         inh_counts[dst] += 1
                     elif w > 0:
-                        src = map_to_src(sr, sc, 1, layer_width, layer_height)
                         exc_conns.append((src, dst, w, exc_delay))
                         exc_counts[dst] += 1
     
@@ -129,14 +133,14 @@ def inh_neighbours(r, c, row_step, col_step, kw, kh, correlation,
         return nbr
 
 
-def lateral_inh_connector(layer_width, layer_height, kernel, correlation,
-                          exc_weight, inh_weight, delay=1., self_delay=4,
+def lateral_inh_connector(layer_width, layer_height, correlation,
+                          inh_weight, delay=1., self_delay=4,
                           col_step=1, row_step=1, 
                           col_start=0, row_start=0, min_w = 0.001):
     '''Assuming there's an interneuron layer with as many neurons as dest'''
-    exc_conns = []
+    # exc_conns = []
     inh_conns = []
-    kh, kw = kernel.shape
+    kh, kw = correlation.shape
     half_kh, half_kw = kh//2, kw//2
     num_dst = ( (layer_height - row_start)//row_step )*\
               ( (layer_width  - col_start)//col_step )
@@ -159,14 +163,15 @@ def lateral_inh_connector(layer_width, layer_height, kernel, correlation,
                     #divide values so that indices match the size of the
                     #Post (destination) next layer
                     ### from Post to Interneurons
-                    src = (dr//row_step)*layer_width//col_step + (dc//col_step)
-                    exc_conns.append( (src, src, exc_weight, delay) )
+                    # src = (dr//row_step)*layer_width//col_step + (dc//col_step)
+                    # exc_conns.append( (src, src, exc_weight, delay) )
                     
                     ### from Interneurons to Post
                     inh_conns += inh_neighbours(dr, dc, row_step, col_step, kw, kh,
                                                 correlation, delay, selfdelay)
                     
-    return exc_conns, inh_conns
+    # return exc_conns, inh_conns
+    return inh_conns
                         
                     
 

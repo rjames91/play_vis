@@ -392,8 +392,13 @@ def plot_spikes(spike_array, max_y=None, pad = 2, title="", marker='.',
 def plot_output_spikes(spikes, pad=0, marker='.', color='blue', markersize=4,
                        plotter=pylab, max_y=None, pad_y=2, markeredgewidth=0,
                        markeredgecolor='none'):
+    if len(spikes) == 0:
+        return 0
+        
     spike_times = [spike_time for (neuron_id, spike_time) in spikes]
     spike_ids  = [neuron_id for (neuron_id, spike_time) in spikes]
+    # print(np.max(spike_times), np.min(spike_times))
+    # print(np.max(spike_ids), np.min(spike_ids))
     max_id = 0 if len(spike_ids) == 0 else np.max(spike_ids)
 
     if max_y is None:
@@ -448,7 +453,8 @@ def imgs_in_T_from_spike_array(spike_array, img_width, img_height,
                                map_func = default_img_map):
     num_neurons = img_width*img_height
     if out_array: # should be output spike format
-        spike_array = out_to_spike_array(spike_array, num_neurons)
+        mult = 2 if up_down is None else 1
+        spike_array = out_to_spike_array(spike_array, mult*num_neurons)
 
 
     
