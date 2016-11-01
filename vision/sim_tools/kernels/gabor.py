@@ -1,16 +1,18 @@
 from ..common import *
 
 
-def gabor_cos(x, y, f, a):
-  return np.cos(2.*np.pi*f*(x*np.cos(a) + y*np.sin(a)))
+def gabor_cos(x, y, frq, ang, sig):
+  gamma = 1./(sig*frq)
+  return np.cos(2.*np.pi*gamma*sig*( x*np.sin(ang) - y*np.cos(ang) ))
 
 
-def gabor_sin(x, y, f, a):
-  return np.sin(2.*np.pi*f*(x*np.cos(a) + y*np.sin(a)))
+def gabor_sin(x, y, frq, ang, sig):
+  gamma = 1./(sig*frq)
+  return np.sin(2.*np.pi*gamma*sig*( x*np.sin(ang) - y*np.cos(ang) ))
 
-
-def gabor_exp(x, y, s):
-  return np.exp(-(x**2 + y**2)/(2*s**2))
+  
+def gabor_exp(x, y, sig):
+  return np.exp(-(x**2 + y**2)/(2*sig**2))
 
 
 def gabor_xy(kernel_width):
@@ -24,8 +26,8 @@ def gabor_xy(kernel_width):
 
 def gabor(kernel_width, angle, sigma, freq):
   x, y = gabor_xy(kernel_width)
-  gc = gabor_cos(x, y, freq, angle)
-  gs = gabor_sin(x, y, freq, angle)
+  gc = gabor_cos(x, y, freq, angle, sigma)
+  gs = gabor_sin(x, y, freq, angle, sigma)
   ge = gabor_exp(x, y, sigma)
   gbr = gc*gs*ge
   gbr = sum2zero(gbr)

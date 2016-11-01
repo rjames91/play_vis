@@ -5,7 +5,7 @@ from sim_tools.connectors import kernel_connectors as conn_krn, \
 
 
 
-class MultiColumn():
+class V1MultiColumn():
     
     def __init__(self, sim, lgn, learning_on,
                  in_width, in_height, in_location, in_receptive_width, 
@@ -25,7 +25,8 @@ class MultiColumn():
         
         self.pix_key   = 'cs'
         self.feat_keys = [k for k in lgn.pops.keys() if k != 'cs']
-
+        self.num_in_ctx = len(self.feat_keys)
+        
         # print("\t\t\tbuilding input indices...")
         self.build_input_indices()
         # print("\t\t\tdone!")
@@ -56,9 +57,26 @@ class MultiColumn():
         
         for r in range(fr_r, to_r):
             for c in range(fr_c, to_c):
-                indices.append(r*self.in_width + c)
+                indices.append( int(r*self.in_width + c) )
         
         self.in_indices = indices
+    
+    
+    # connector for input context neurons 
+    def in_cntx2cntx(self):
+        cfg = self.cfg
+        b_weight = cfg['context_to_context_weight']
+        conns = []
+        for i in range(self.group_size):
+            np.random.seed( np.uint32( time.time()*(10**10) ) )
+            in_indices = np.random.randint(self.num_in_ctx, size=2)
+            # weights = np.random.normal(b_weight, 0.5*b_weight, size=2)
+            weights = np.random.random(size=2)*b_weight
+            
+            conns.append((in_indices[0], i, weights[0], 1.))
+            conns.append((in_indices[1], i, weights[1], 1.))
+        
+        return conns
     
     
     def build_connectors(self):
@@ -68,6 +86,8 @@ class MultiColumn():
         in_idx = self.in_indices
         sipl_idx = [i for i in range(size)]
         num_in = self.num_in_neruons
+        num_in_ctx = self.num_in_ctx
+        
         conns['in2sipl'] = conn_std.list_all2all(in_idx, sipl_idx, 
                                             weight=cfg['pix_in_weight'], 
                                             delay=1., sd=0.01)
@@ -75,13 +95,17 @@ class MultiColumn():
         conns['in2cntx'] = [conn_std.list_all2all(in_idx, [i], \
                                       weight=cfg['context_in_weight'],\
                                       delay=1., sd=0.01) \
-                                      for i in range(num_in) ]
+                                      for i in range(num_in_ctx) ]
 
         conns['sipl2intr'] = conn_std.list_wta_interneuron(sipl_idx, sipl_idx, 
                                                     ff_weight=cfg['w2s'], 
                                                     fb_weight=-cfg['w2s'], 
                                                     delay=1.)
-
+        conns['in_cntx2cntx'] = self.in_cntx2cntx()
+        
+        conns['cntx2sipl'] = one2one(size, cfg['context_to_simple_weight'], 
+                                     delay=1.)
+        
         self.conns = conns
 
 
@@ -102,7 +126,7 @@ class MultiColumn():
                                         label=loc2lbl(self.in_location, \
                                                      'simple') )
 
-        pops['context_in'] = sim.Population(len(self.feat_keys),
+        pops['context_in'] = sim.Population(self.num_in_ctx,
                                             exc_cell, exc_parm,
                                             label='context input')
         
@@ -119,14 +143,13 @@ class MultiColumn():
                                          label=loc2lbl(self.in_location, 'output') )
         
         if cfg['record']['spikes']:
-            pops['simple'].record()
+            pops['context'].record()
             # for k in pops:
                 # pops[k].record()
 
         if cfg['record']['voltages']:
-            pops['simple'].record_v()
-            # for k in pops:
-                # pops[k].record_v()
+            for k in pops:
+                pops[k].record_v()
         
         self.pops = pops
     
@@ -173,35 +196,59 @@ class MultiColumn():
                                             conn, 
                                             label='inter to simple')
     
-        # projs['ctxt2wta'] = self.build_input_to_context_projections()
+        projs['in_cntx'] = self.build_input_to_context_projections()
+        
+        conn = sim.FromListConnector(self.conns['in_cntx2cntx'])
+        projs['in_cntx2cntx'] = sim.Projection(self.pops['context_in'],
+                                               self.pops['context'],
+                                               conn,
+                                               label='context in to context')
+        
+        conn = sim.FromListConnector(self.conns['cntx2sipl'])
+        projs['cntx2sipl'] = sim.Projection(self.pops['context'],
+                                            self.pops['simple'],
+                                            conn,
+                                            label='context to simple')
         
         self.projs = projs
 
 
-    def rand_context_pops(self):
-        feat_keys = self.feat_keys
-        lgn = self.lgn
-        np.random.seed(np.uint32( time.time()*(10**6) ))
-        pop_idx = np.random.choice(len(feat_keys), size=2,
-                                   replace=False)
-                                   
-        k0 = feat_keys[pop_idx[0]]
-        k1 = feat_keys[pop_idx[1]]
-
-        return k0, k1, lgn[k0]['output'], lgn[k1]['output'] 
-
-
     def build_input_to_context_projections(self):
         cfg = self.cfg
+        sim = self.sim
+        lgn = self.lgn
         projs = []
-        
-        for i in range(size):
-            k0, k1, pop0, pop1 = self.rand_context_pops()
-            conn = sim.FromListConnector(self.conns['in2cnt'][i])
-            projs.append(sim.Projection(pop0, self.pops['wta_inh'],
-                                        conn, label='%s to inter'%k0) )
-            projs.append(sim.Projection(pop1, self.pops['wta_inh'],
-                                        conn, label='%s to inter'%k1) )
+        for i in range(self.num_in_ctx):
+            k = self.feat_keys[i]
+            conn = sim.FromListConnector(self.conns['in2cntx'][i])
+            lgn_pop = lgn.pops[k]['output']
+            projs.append(sim.Projection(lgn_pop, 
+                                        self.pops['context_in'],
+                                        conn, label='in %s to context'%(k),
+                                        target='excitatory') )
 
-                                        
         return projs
+
+
+    def get_weights_input(self):
+        sp = self.projs['in2sipl']
+        all_ws = sp.getWeights(format='array', gather=False)
+        # print(all_ws[self.in_indices, 0].shape)
+        weights = [ all_ws[self.in_indices, i] for i in range(self.group_size) ]
+        
+        return weights
+        
+        
+        
+    def get_weights_pictures(self, weights):
+        w = weights
+        recept_shape = (self.in_receptive_width, self.in_receptive_width)
+        # for i in range(len(w)):
+            # print(w[i].shape)
+        
+        imgs = [ np.array(w[i]).reshape(recept_shape) for i in range(len(w)) ]
+        
+        return imgs
+        
+        
+        
